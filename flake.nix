@@ -1,229 +1,99 @@
 {
   description = "OwnCloud NixOS system packaged as a Docker image";
+
 nixConfig = {
 extra-substituters = "http://i2.mikro.work:12666/nau";
 extra-trusted-public-keys = "nau:HISII/VSRjn+q5/T9Nrue5UmUU66qjppqCC1DEHuQic=";
 };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     nixos-generators.url = "github:nix-community/nixos-generators";
-    nixphp74.url = "github:nixos/nixpkgs?rev=99fcf0ee74957231ff0471228e9a59f976a0266b";
-    flake-utils.url = "github:numtide/flake-utils";
+    nixos-generators.inputs.nixpkgs.follows = "nixpkgs";
     phps.url = "github:fossar/nix-phps";
+    nixphp74.url = "github:nixos/nixpkgs?rev=99fcf0ee74957231ff0471228e9a59f976a0266b";
   };
 
-  outputs = { self, nixpkgs, nixos-generators, flake-utils, phps, nixphp74, ... }:
-    let
-      systems = [ "x86_64-linux" "aarch64-linux" ];
-
-      # Fixed architecture pkgs for the exported nixosConfigurations (no per-system nesting)
-      pkgsX86 = import nixpkgs { system = "x86_64-linux"; };
-      pkgsphp74X86 = phps.packages.x86_64-linux;
+  outputs = { self, nixpkgs, nixos-generators, phps, ... }@inputs:
+     let
+    # Helper function to get packages for a specific system
+    forSystem = system: {
+      pkgs = nixpkgs.legacyPackages.${system};
+      #pkgsphp74 = inputs.nixphp74.legacyPackages.${system};
+      pkgsphp74 = inputs.phps.packages.${system};
       lib = nixpkgs.lib;
-      libphp74 = nixphp74.lib;
-
-      baseContainerModuleX86 = {
-        boot.isContainer = true;
-        networking.firewall.enable = false;
-        services.openssh.enable = false;
-        users.users.root.initialPassword = "nixos";
-        environment.systemPackages = with pkgsX86; [ curl vim htop ];
-        system.stateVersion = "25.05";
-
-        # Container/systemd tuning
-        systemd.enableUnifiedCgroupHierarchy = true;
-        systemd.oomd.enable = false;
-        systemd.services.systemd-logind.enable = false;
-        services.journald.storage = "volatile";
-        networking.hostName = "owncloud";
-        environment.etc."machine-id".text = "00000000000000000000000000000000";
-      };
-    in
-    flake-utils.lib.eachSystem systems (system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-        pkgsphp74 = phps.packages.${system};
-
-        baseContainerModule = {
-          boot.isContainer = true;
-          networking.firewall.enable = false;
-          services.openssh.enable = false;
-          users.users.root.initialPassword = "nixos";
-          environment.systemPackages = with pkgs; [ curl vim htop ];
-          system.stateVersion = "25.05";
-
-          # Container/systemd tuning
-          systemd.enableUnifiedCgroupHierarchy = true;
-          systemd.oomd.enable = false;
-          systemd.services.systemd-logind.enable = false;
-          services.journald.storage = "volatile";
-          networking.hostName = "owncloud";
-          environment.etc."machine-id".text = "00000000000000000000000000000000";
-        };
-
-        owncloudModules = [
-          ./oc-nginx-owncloud.nix
-          baseContainerModule
-        ];
-
-        # Fallback system evaluation for dockerTools (in case nixos-generators produces plain rootfs)
-        owncloudSystem = lib.nixosSystem {
-          inherit system;
-          modules = owncloudModules;
-          specialArgs = {
-            inherit pkgsphp74 lib libphp74 phps;
-            inputs = { inherit phps nixpkgs; };
-          };
-        };
-
-      in {
-        packages = {
-          dockerImage = nixos-generators.nixosGenerate {
-            inherit system;
-            format = "docker";
-            modules = owncloudModules;
-            specialArgs = {
-              inherit pkgsphp74 lib libphp74 phps;
-              inputs = { inherit phps nixpkgs; };
-            };
-          };
-
-          # Fallback image built with dockerTools (layers from system closure)
-          dockerImageFallback = pkgs.dockerTools.buildImage {
-            name = "owncloud-nixos-${system}";
-            tag = "latest";
-            copyToRoot = [ owncloudSystem.config.system.build.toplevel ];
-            config = {
-              Cmd = [ "/init" ];
-              ExposedPorts."80/tcp" = { };
-            };
-          };
-
-          default = pkgs.writeTextFile {
-            name = "README-owncloud";
-            text = ''
-              OwnCloud NixOS container flake.
-
-              IMPORTANT: nixos-generators docker format note:
-              Upstream docs: “docker image (uses systemd to run, probably only works in podman)”.
-              For Docker you must grant extra privileges so systemd can manage cgroups.
-
-              Preferred (Podman):
-                nix build .#packages.${system}.dockerImage -L
-                podman load < result
-                podman run -d --name owncloud \
-                  -p 8080:80 \
-                  -v owncloud-data:/owncloud \
-                  localhost/owncloud-nixos-${system}:latest
-
-              Docker (layered image if manifest.json present):
-                nix build .#packages.${system}.dockerImage -L
-                if tar -tf result | grep -q manifest.json; then docker load < result; else echo "No manifest.json – use import mode"; fi
-
-              Docker run (systemd) with privileges:
-                docker run -d --name owncloud \
-                  --privileged \
-                  --cgroupns=host \
-                  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-                  --tmpfs /run --tmpfs /run/lock --tmpfs /tmp \
-                  -v owncloud-data:/owncloud \
-                  -p 8080:80 \
-                  owncloud-nixos-${system}:latest /init
-
-              Import mode (rootfs tar) if needed:
-                docker import result owncloud-nixos:${system}
-                docker run -d --name owncloud \
-                  --privileged --cgroupns=host \
-                  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-                  --tmpfs /run --tmpfs /run/lock --tmpfs /tmp \
-                  -v owncloud-data:/owncloud \
-                  -p 8080:80 \
-                  owncloud-nixos:${system} /init
-
-              Fallback layered image (dockerTools):
-                nix build .#packages.${system}.dockerImageFallback -L
-                docker load < result
-                docker run -d --name owncloud \
-                  --privileged --cgroupns=host \
-                  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-                  --tmpfs /run --tmpfs /run/lock --tmpfs /tmp \
-                  -v owncloud-data:/owncloud \
-                  -p 8080:80 \
-                  owncloud-nixos-${system}:latest /init
-
-              x86_64 build (explicit):
-                nix build .#packages.x86_64-linux.dockerImage
-
-              Check systemd (PID 1):
-                docker/podman exec -it owncloud ps -o pid,comm | grep '^1'
-
-              This README generated per system output.
-            '';
-          };
-        };
-
-        devShells.default = pkgs.mkShell {
-          packages = with pkgs; [ nixfmt-rfc-style ];
-        };
-
-        apps.run-owncloud = {
-          type = "app";
-          program = (pkgs.writeShellScriptBin "run-owncloud" ''
-            set -e
-            IMAGE_ATTR="packages.${system}.dockerImage"
-              echo "Attempting to build $IMAGE_ATTR..."
-              nix build ".#$IMAGE_ATTR" -L
-            if tar -tf result 2>/dev/null | grep -q manifest.json; then
-              echo "Detected manifest.json -> using docker load"
-              IMAGE_ID=$(docker load < result | awk '/Loaded image/ {print $3}')
-              echo "Loaded image: $IMAGE_ID"
-              echo "Running container..."
-              exec docker run -d --name owncloud \
-                --cgroupns=host \
-                --tmpfs /run --tmpfs /run/lock \
-                -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
-                -v owncloud-data:/owncloud \
-                -p 8080:80 "$IMAGE_ID" /init
-            else
-              echo "No manifest.json found -> using docker import rootfs path"
-              # Try import
-              IMAGE_ID=$(docker import result owncloud-nixos:${system})
-              echo "Imported image: $IMAGE_ID"
-              exec docker run -d --name owncloud \
-                --cgroupns=host \
-                --tmpfs /run --tmpfs /run/lock \
-                -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
-                -v owncloud-data:/owncloud \
-                -p 8080:80 owncloud-nixos:${system} /init
-            fi
-          '')."/bin/run-owncloud";
-        };
-
-        apps.run-owncloud-fallback = {
-          type = "app";
-          program = (pkgs.writeShellScriptBin "run-owncloud-fallback" ''
-            set -e
-            echo "Building dockerTools fallback image..."
-            nix build ".#packages.${system}.dockerImageFallback" -L
-            IMAGE_ID=$(docker load < result | awk '/Loaded image/ {print $3}')
-            echo "Loaded fallback image: $IMAGE_ID"
-            exec docker run -d --name owncloud -p 8080:80 "$IMAGE_ID" /init
-          '')."/bin/run-owncloud-fallback";
-        };
-      }
-    ) // {
-      # Global (not system-nested) NixOS configuration
-      nixosConfigurations.owncloud = lib.nixosSystem {
-        system = "x86_64-linux";
-        modules = [
-          ./oc-nginx-owncloud.nix
-          baseContainerModuleX86
-        ];
-        specialArgs = {
-          pkgsphp74 = pkgsphp74X86;
-          inherit lib libphp74 phps;
-          inputs = { inherit phps nixpkgs; };
-        };
-      };
+      libphp74 = inputs.nixphp74.lib;
     };
+    
+    # Pre-define common systems
+    aarch64-linux = forSystem "aarch64-linux";
+    x86_64-linux = forSystem "x86_64-linux";
+   in
+   {
+    
+    # NixOS configuration for your OwnCloud system
+    nixosConfigurations.owncloud = nixpkgs.lib.nixosSystem {
+              specialArgs = {
+          inherit inputs;
+          libphp74 = x86_64-linux.libphp74;
+          pkgsphp74 = x86_64-linux.pkgsphp74;
+        };
+      system = "x86_64-linux"; #Change to "aarch64-linux" for ARM systems
+      modules = [
+        ./oc-nginx-owncloud.nix
+
+        # Add minimal system configuration that Docker needs
+        {
+          # Optional: make container networking friendlier
+          networking.firewall.enable = false;
+
+          # Use systemd inside Docker image
+          boot.isContainer = true;
+          services.openssh.enable = false;
+
+          # Optional: disable ACME if you plan to handle HTTPS externally
+          # security.acme.enable = false;
+
+          # Give a root password for debugging inside container
+          users.users.root.initialPassword = "nixos";
+
+          # Data volume mount point (can be mounted from Docker volume)
+          environment.persistence."/owncloud" = { };
+          system.stateVersion = "25.05";
+          # Useful default packages for inspection
+          environment.systemPackages = with nixpkgs.legacyPackages.x86_64-linux; [
+            curl
+            vim
+            htop
+          ];
+        }
+      ];
+    };
+
+    # Build the Docker image using nixos-generators
+    packages.x86_64-linux.dockerImage = nixos-generators.nixosGenerate {
+          specialArgs = {
+          inherit inputs;
+          libphp74 = x86_64-linux.libphp74;
+          pkgsphp74 = x86_64-linux.pkgsphp74;
+        
+        };
+      system = "x86_64-linux"; #Change to "aarch64-linux" for ARM systems
+      modules = [ ./oc-nginx-owncloud.nix 
+      {
+        boot.isContainer = true;
+        systemd.oomd.enable = false;
+        networking.firewall.enable = false;
+        system.stateVersion = "25.05";
+        documentation.doc.enable = false;
+        environment.systemPackages = with nixpkgs.legacyPackages.x86_64-linux; [
+          bashInteractive
+          cacert
+          nix
+       ];
+      }
+      ];
+      format = "docker";
+    };
+  };
 }

@@ -10,9 +10,9 @@ in
   services.cron = {
     enable = true;
     systemCronJobs = [
-      "*/15 * * * *      nemo    ${php}/bin/php /owncloud/owncloud/occ system:cron"
-      "0 1 * * * *      nemo    ${php}/bin/php /owncloud/owncloud/occ dav:sync-system-addressbook"
-      "0 1 * * * *      nemo    ${php}/bin/php /owncloud/owncloud/occ dav:cleanup-chunks"
+      "*/15 * * * *      ${config.services.nginx.user}    ${php}/bin/php /owncloud/owncloud/occ system:cron"
+      "0 1 * * * *      ${config.services.nginx.user}    ${php}/bin/php /owncloud/owncloud/occ dav:sync-system-addressbook"
+      "0 1 * * * *      ${config.services.nginx.user}    ${php}/bin/php /owncloud/owncloud/occ dav:cleanup-chunks"
     ];
   };
  services.phpfpm.phpPackage = php;
@@ -21,8 +21,8 @@ in
    #phpOptions = ''
    #extension=${pkgs.phpExtensions.apcu}/lib/php/extensions/apcu.so
    #extension=${pkgs.phpExtensions.memcached}/lib/php/extensions/memcached.so'';
-   user = "nemo";
-   group = "users";
+   user = config.services.nginx.user;
+#   group = "users";
    settings = {
 #     "listen.owner" = "nemo";
 #     "listen.group" = "users";
@@ -46,13 +46,13 @@ in
 
 
  services.nginx = {
-   user = "nemo";
-   group = "users";
+#   user = "nemo";
+#   group = "users";
    enable = true;
    virtualHosts = {
      "oc.mikro.work" = {
-       forceSSL = true;
-       enableACME = true;
+       forceSSL = false;
+       enableACME = false;
        root = "/owncloud/owncloud";
        extraConfig = ''             
          add_header Strict-Transport-Security "max-age=15552000; includeSubDomains";
@@ -166,11 +166,11 @@ in
    };
  };
 
- security.acme = {
-   acceptTerms = true;
-   defaults.email = "nemo+oc@mikro.work";
- };
- security.acme.certs = {
-   "oc.mikro.work".email = "nemo+oc@mikro.work";
- };
+#  security.acme = {
+#    acceptTerms = true;
+#    defaults.email = "nemo+oc@mikro.work";
+#  };
+#  security.acme.certs = {
+#    "oc.mikro.work".email = "nemo+oc@mikro.work";
+#  };
 }
