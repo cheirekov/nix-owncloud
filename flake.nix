@@ -30,43 +30,6 @@ extra-trusted-public-keys = "nau:HISII/VSRjn+q5/T9Nrue5UmUU66qjppqCC1DEHuQic=";
     x86_64-linux = forSystem "x86_64-linux";
    in
    {
-    
-    # NixOS configuration for your OwnCloud system
-    nixosConfigurations.owncloud = nixpkgs.lib.nixosSystem {
-              specialArgs = {
-          inherit inputs;
-          libphp74 = x86_64-linux.libphp74;
-          pkgsphp74 = x86_64-linux.pkgsphp74;
-        };
-      system = "x86_64-linux"; #Change to "aarch64-linux" for ARM systems
-      modules = [
-        ./oc-nginx-owncloud.nix
-
-        # Add minimal system configuration that Docker needs
-        {
-          # Optional: make container networking friendlier
-          networking.firewall.enable = false;
-
-          services.openssh.enable = false;
-
-          # Optional: disable ACME if you plan to handle HTTPS externally
-          # security.acme.enable = false;
-
-          # Give a root password for debugging inside container
-          users.users.root.initialPassword = "nixos";
-
-          # Data volume mount point (can be mounted from Docker volume)
-          environment.persistence."/owncloud" = { };
-          system.stateVersion = "25.05";
-          # Useful default packages for inspection
-          environment.systemPackages = with nixpkgs.legacyPackages.x86_64-linux; [
-            curl
-            vim
-            htop
-          ];
-        }
-      ];
-    };
 
     # Build the Docker image using nixos-generators
     packages.x86_64-linux.dockerImage = nixos-generators.nixosGenerate {
