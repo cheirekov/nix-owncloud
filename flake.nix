@@ -2,7 +2,7 @@
   description = "OwnCloud NixOS system packaged as a Docker image";
 
 nixConfig = {
-extra-substituters = "http://i2.mikro.work:12666/nau";
+extra-substituters = "http://i2.mikro.work:12666/nau"; #use it if aarach64 build is needed
 extra-trusted-public-keys = "nau:HISII/VSRjn+q5/T9Nrue5UmUU66qjppqCC1DEHuQic=";
 };
 
@@ -47,8 +47,6 @@ extra-trusted-public-keys = "nau:HISII/VSRjn+q5/T9Nrue5UmUU66qjppqCC1DEHuQic=";
           # Optional: make container networking friendlier
           networking.firewall.enable = false;
 
-          # Use systemd inside Docker image
-          boot.isContainer = true;
           services.openssh.enable = false;
 
           # Optional: disable ACME if you plan to handle HTTPS externally
@@ -84,6 +82,12 @@ extra-trusted-public-keys = "nau:HISII/VSRjn+q5/T9Nrue5UmUU66qjppqCC1DEHuQic=";
         boot.isContainer = true;
         systemd.oomd.enable = false;
         networking.firewall.enable = false;
+        networking.nameservers = [ "8.8.8.8" "1.1.1.1" ];
+        networking.useDHCP = false;
+        networking.useNetworkd = false;
+        networking.enableIPv6 = false;
+        boot.kernel.sysctl."net.ipv4.ip_forward" = 1;
+        #services.nscd.enable = false;
         system.stateVersion = "25.05";
         documentation.doc.enable = false;
         environment.systemPackages = with nixpkgs.legacyPackages.x86_64-linux; [
