@@ -1,0 +1,19 @@
+# Nix build results
+result
+result-*
+
+# Nix development
+.direnv/
+.envrc
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
