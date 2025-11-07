@@ -191,7 +191,9 @@ Add/update derivation or fetch process (not included here). Place application co
 
 ## License
 
-Provide appropriate licensing for OwnCloud and any added files (not specified here).
+This project (NixOS configuration files and documentation) is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
+**Important Note**: This license applies only to the configuration files in this repository. OwnCloud itself is distributed under the AGPL v3 license and must be obtained separately. Users are responsible for complying with OwnCloud's licensing terms when deploying the software.
 
 ## References
 
