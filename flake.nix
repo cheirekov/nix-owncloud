@@ -89,7 +89,7 @@ extra-trusted-public-keys = "nau:HISII/VSRjn+q5/T9Nrue5UmUU66qjppqCC1DEHuQic=";
           bashInteractive
           cacert
           nix
-       ];
+       ] ++ [ x86_64-linux.pkgsphp74.php74 ];
       }
       ];
       format = "docker";

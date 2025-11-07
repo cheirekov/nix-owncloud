@@ -1,20 +1,4 @@
 { config, pkgs, pkgsphp74, inputs, lib, libphp74, ... }:
-let
-  # Replace pkgs.php with the php version you want; ex pkgs.php83
-  php = pkgsphp74.php74.buildEnv {
-    extensions = { enabled, all }: enabled ++ (with all; [ 
-      memcached 
-      apcu 
-      curl
-      gd
-      intl
-      mbstring
-      mysqli
-      zip
-      opcache
-    ]); 
-  };
-in
 
 {
 services.mysql = {
@@ -30,9 +14,9 @@ services.mysqlBackup = {
   services.cron = {
     enable = true;
     systemCronJobs = [
-      "*/15 * * * *      ${config.services.httpd.user}    ${php}/bin/php /owncloud/owncloud/occ system:cron"
-      "0 1 * * *       ${config.services.httpd.user}    ${php}/bin/php /owncloud/owncloud/occ dav:sync-system-addressbook"
-      "0 1 * * *       ${config.services.httpd.user}    ${php}/bin/php /owncloud/owncloud/occ dav:cleanup-chunks"
+      "*/15 * * * *      ${config.services.httpd.user}    ${config.services.httpd.phpPackage}/bin/php /owncloud/owncloud/occ system:cron"
+      "0 1 * * *       ${config.services.httpd.user}    ${config.services.httpd.phpPackage}/bin/php /owncloud/owncloud/occ dav:sync-system-addressbook"
+      "0 1 * * *       ${config.services.httpd.user}    ${config.services.httpd.phpPackage}/bin/php /owncloud/owncloud/occ dav:cleanup-chunks"
     ];
   };
 
@@ -45,17 +29,29 @@ services.mysqlBackup = {
     group = "wwwrun";
     adminAddr = "admin@localhost";
     
-    phpPackage = php;
+    # Configure PHP with all required extensions for OwnCloud
+    phpPackage = pkgsphp74.php74.buildEnv {
+      extensions = ({ enabled, all }: enabled ++ (with all; [
+        memcached
+        apcu
+        curl
+        gd
+        intl
+        mbstring
+        mysqli
+        zip
+        opcache
+      ]));
+      extraConfig = ''
+        upload_max_filesize = 2G
+        post_max_size = 2G
+        memory_limit = 512M
+        mbstring.func_overload = 0
+        default_charset = 'UTF-8'
+        output_buffering = 0
+      '';
+    };
     enablePHP = true;
-    
-    phpOptions = ''
-      upload_max_filesize = 2G
-      post_max_size = 2G
-      memory_limit = 512M
-      mbstring.func_overload = 0
-      default_charset = 'UTF-8'
-      output_buffering = 0
-    '';
     
     extraModules = [
       "rewrite"
