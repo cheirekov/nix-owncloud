@@ -7,12 +7,23 @@ let
 in
 
 {
+services.mysql = {
+  enable = true;
+  package = pkgs.mysql80;
+  settings.mysqld.bind-address = "0.0.0.0";
+};
+services.mysqlBackup = {
+  enable = true;
+  databases = [ "OwnCloud" ];
+};
+
+
   services.cron = {
     enable = true;
     systemCronJobs = [
       "*/15 * * * *      ${config.services.nginx.user}    ${php}/bin/php /owncloud/owncloud/occ system:cron"
-      "0 1 * * * *      ${config.services.nginx.user}    ${php}/bin/php /owncloud/owncloud/occ dav:sync-system-addressbook"
-      "0 1 * * * *      ${config.services.nginx.user}    ${php}/bin/php /owncloud/owncloud/occ dav:cleanup-chunks"
+      "0 1 * * *       ${config.services.nginx.user}    ${php}/bin/php /owncloud/owncloud/occ dav:sync-system-addressbook"
+      "0 1 * * *       ${config.services.nginx.user}    ${php}/bin/php /owncloud/owncloud/occ dav:cleanup-chunks"
     ];
   };
  services.phpfpm.phpPackage = php;
@@ -50,7 +61,7 @@ in
 #   group = "users";
    enable = true;
    virtualHosts = {
-     "oc.mikro.work" = {
+     "oc.oscam.in" = {
        forceSSL = false;
        enableACME = false;
        root = "/owncloud/owncloud";
@@ -171,6 +182,16 @@ in
 #    defaults.email = "nemo+oc@mikro.work";
 #  };
 #  security.acme.certs = {
-#    "oc.mikro.work".email = "nemo+oc@mikro.work";
+#    "oc.oscam.in".email = "nemo+oc@mikro.work";
 #  };
+
+  # Create owncloud directory owned by nginx user and a symlink 'data' pointing to /owncloud/owncloud/data
+  # Using systemd-tmpfiles so it is realized at image/container boot.
+  systemd.tmpfiles.rules = [
+    "d /usr/share 0755 root root - -"
+    "d /usr/share/nginx 0755 ${config.services.nginx.user} ${config.services.nginx.group} - -"
+    "d /usr/share/nginx/html 0755 ${config.services.nginx.user} ${config.services.nginx.group} - -"
+    "d /usr/share/nginx/html/owncloud 0755 ${config.services.nginx.user} ${config.services.nginx.group} - -"
+    "L+ /usr/share/nginx/html/owncloud/data - - - - /owncloud/owncloud/data"
+  ];
 }

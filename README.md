@@ -1,29 +1,54 @@
-# OwnCloud NixOS Docker Image (Nginx + PHP-FPM 7.4)
+# OwnCloud NixOS Docker Images
 
-This project builds a NixOS-based Docker/Podman image running OwnCloud behind Nginx and PHP-FPM (PHP 7.4 with APCu + Memcached extensions). The image is generated reproducibly using `nixos-generators` via a Nix flake.
+This project builds NixOS-based Docker/Podman images running OwnCloud with two different web server options:
+1. **Nginx + PHP-FPM** (PHP 7.4 with APCu + Memcached extensions)
+2. **Apache httpd + mod_php** (Same PHP 7.4 configuration)
+
+Both images are generated reproducibly using `nixos-generators` via a Nix flake.
 
 ## Features
 
-- Nginx configured for OwnCloud (strict security headers, fastcgi tuning, large upload sizes).
-- PHP-FPM 7.4 (`php74.buildEnv`) with `memcached` and `apcu` extensions enabled.
-- OwnCloud cron tasks scheduled (system cron invoking `occ` commands).
-- Tuned PHP-FPM pool (dynamic, memory limits, large upload/post size 2G).
-- Optional ACME / SSL sections present but commented (not tested).
-- Container sysctl: IPv4 forwarding enabled.
-- Firewall disabled; DNS nameservers preset; IPv6 disabled.
-- Uses Nix binary cache (internal) for multi-arch builds (x86_64 and aarch64).
-- Minimal extra system packages: `bashInteractive`, `cacert`, `nix`.
+### Common Features (Both Images)
+- PHP 7.4 (`php74.buildEnv`) with `memcached` and `apcu` extensions enabled
+- OwnCloud cron tasks scheduled (system cron invoking `occ` commands)
+- MySQL 8.0 with automated backups
+- Large upload/post size support (2G)
+- Memory limit: 512M
+- Container sysctl: IPv4 forwarding enabled
+- Firewall disabled; DNS nameservers preset; IPv6 disabled
+- Uses Nix binary cache (internal) for multi-arch builds (x86_64 and aarch64)
+- Minimal extra system packages: `bashInteractive`, `cacert`, `nix`
+- Security headers: HSTS, X-Frame-Options, X-Content-Type-Options, X-Robots-Tag, etc.
+- Data root: `/owncloud/owncloud` (ensure persistence via volume mount)
+
+### Nginx Version (`oc-nginx-owncloud.nix`)
+- Nginx configured for OwnCloud with strict security headers
+- PHP-FPM pool with dynamic process management (max 50 children)
+- FastCGI tuning and buffering
+- Separate caching headers for static assets (CSS, JS, images, fonts)
+- Custom location blocks for OwnCloud paths
+
+### Apache Version (`oc-httpd-owncloud.nix`)
+- Apache httpd with mod_php (not php-fpm)
+- Uses ownCloud's stock `.htaccess` file for configuration
+- `AllowOverride All` enabled for .htaccess support
+- Required Apache modules: rewrite, headers, env, dir, mime, setenvif
+- Logrotate disabled (logs go to journalctl for container compatibility)
 
 ## Architecture Overview
 
-Component summary:
-- Base: NixOS module composition via `nixos-generators.nixosGenerate` (format = docker).
-- Web: Nginx virtual host `oc.mikro.work` (can be changed; SSL directives currently off).
-- PHP: PHP-FPM pool `owncloud` with socket exposed to Nginx fastcgi.
-- Cron: OwnCloud maintenance commands every 15 minutes + nightly jobs.
-- Extensions: `memcached`, `apcu` statically added via `php74.buildEnv`.
-- Security: Several headers set (HSTS, X-Frame-Options, X-Content-Type-Options, etc).
-- Data root: `/owncloud/owncloud` (ensure persistence via volume mount).
+### Nginx Architecture
+- Base: NixOS module composition via `nixos-generators.nixosGenerate` (format = docker)
+- Web: Nginx virtual host `oc.oscam.in` (can be changed; SSL directives currently off)
+- PHP: PHP-FPM pool `owncloud` with socket exposed to Nginx fastcgi
+- Cron: OwnCloud maintenance commands every 15 minutes + nightly jobs (run as nginx user)
+
+### Apache Architecture
+- Base: Same NixOS module composition
+- Web: Apache httpd virtual host `oc.oscam.in` with mod_php
+- PHP: Integrated via mod_php (enablePHP = true)
+- Configuration: Relies on ownCloud's `.htaccess` for URL rewriting and PHP settings
+- Cron: OwnCloud maintenance commands every 15 minutes + nightly jobs (run as wwwrun user)
 
 ## Flake Structure
 
@@ -52,18 +77,27 @@ Key parts from `flake.nix`:
   - Separate caching headers for static assets (`css`, `js`, images, fonts).
   - Rewrite root to `index.php`.
 
-## Building the Image
+## Building the Images
 
-Default (x86_64):
+### Nginx Version (x86_64):
 ```bash
 nix build .#packages.x86_64-linux.dockerImage
 ```
 
+### Apache/httpd Version (x86_64):
+```bash
+nix build .#packages.x86_64-linux.dockerImageHttpd
+```
+
 Result will be a symlink `result` pointing to a tarball (layered image export).
 
-For aarch64 (if adding analogous output):
+### For aarch64 (if adding analogous output):
 ```bash
+# Nginx
 nix build --system aarch64-linux .#packages.aarch64-linux.dockerImage
+
+# Apache
+nix build --system aarch64-linux .#packages.aarch64-linux.dockerImageHttpd
 ```
 (Requires host or remote builder capable of aarch64; leverage provided substituter.)
 
@@ -109,15 +143,16 @@ Adjust host port / volumes as required. Persist `/owncloud/owncloud/data` (and o
 
 ## Customization
 
-- Domain: Change `"oc.mikro.work"` in `services.nginx.virtualHosts` to your FQDN.
-- Enable SSL / ACME:
+- **Domain**: Change `"oc.oscam.in"` in `services.nginx.virtualHosts` (nginx) or `services.httpd.virtualHosts` (Apache) to your FQDN.
+- **Choose Web Server**: Build either `dockerImage` (Nginx) or `dockerImageHttpd` (Apache) depending on your preference.
+- **Enable SSL / ACME**:
   - Uncomment `security.acme` section and set email.
   - Set `forceSSL = true` and provide certificates or rely on ACME.
-- PHP Version:
-  - Swap `php74` with another version from `phps` (e.g. `php83`) adjusting the buildEnv derivation.
-- Additional PHP Extensions:
-  - Extend the `extensions` list in `buildEnv`.
-- Add packages:
+- **PHP Version**:
+  - Swap `php74` with another version from `phps` (e.g. `php83`) adjusting the buildEnv derivation in both modules.
+- **Additional PHP Extensions**:
+  - Extend the `extensions` list in `buildEnv` (same for both modules).
+- **Add packages**:
   - Insert into `environment.systemPackages` in the flake module list.
 
 ## Multi-Arch Notes
@@ -134,10 +169,21 @@ Binary cache lines in `flake.nix` allow faster aarch64 builds when a cache is av
 
 ## Troubleshooting
 
-- PHP errors: Inspect `/var/log/php-fpm/owncloud-error.log` inside container.
-- FastCGI socket issues: Confirm `services.phpfpm.pools.owncloud.socket` path matches Nginx `fastcgi_pass`.
-- Large uploads failing: Verify proxy / host limits; `client_max_body_size 0` in Nginx allows unlimited, but upstream reverse proxies may cap.
-- Cron not running: Ensure systemd is functional (requires privileged).
+### Nginx Version
+- **PHP errors**: Inspect `/var/log/php-fpm/owncloud-error.log` inside container.
+- **FastCGI socket issues**: Confirm `services.phpfpm.pools.owncloud.socket` path matches Nginx `fastcgi_pass`.
+- **Large uploads failing**: Verify proxy / host limits; `client_max_body_size 0` in Nginx allows unlimited, but upstream reverse proxies may cap.
+
+### Apache Version
+- **PHP errors**: Check Apache error logs via `journalctl -u httpd` or within the container logs.
+- **mod_php issues**: Verify `enablePHP = true` is set and `phpPackage` is properly configured.
+- **.htaccess not working**: Ensure `AllowOverride All` is set in the Directory directive.
+- **Logrotate conflict**: If you see logrotate errors, verify `services.logrotate.enable = lib.mkForce false;` is present in the module.
+
+### Common Issues (Both Versions)
+- **Cron not running**: Ensure systemd is functional (requires privileged mode).
+- **MySQL connection issues**: Check if MySQL is running with `systemctl status mysql` inside container.
+- **Large uploads failing**: Verify host-level proxy limits if behind a reverse proxy.
 
 ## Updating OwnCloud
 
