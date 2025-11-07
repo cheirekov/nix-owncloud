@@ -2,7 +2,17 @@
 let
   # Replace pkgs.php with the php version you want; ex pkgs.php83
   php = pkgsphp74.php74.buildEnv {
-    extensions = { enabled, all }: enabled ++ (with all; [ memcached apcu ]); 
+    extensions = { enabled, all }: enabled ++ (with all; [ 
+      memcached 
+      apcu 
+      curl
+      gd
+      intl
+      mbstring
+      mysqli
+      zip
+      opcache
+    ]); 
   };
 in
 

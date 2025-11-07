@@ -9,7 +9,16 @@ Both images are generated reproducibly using `nixos-generators` via a Nix flake.
 ## Features
 
 ### Common Features (Both Images)
-- PHP 7.4 (`php74.buildEnv`) with `memcached` and `apcu` extensions enabled
+- PHP 7.4 (`php74.buildEnv`) with essential extensions:
+  - `memcached` - Caching support
+  - `apcu` - Alternative PHP cache
+  - `curl` - HTTP client library
+  - `gd` - Image processing
+  - `intl` - Internationalization
+  - `mbstring` - Multibyte string support
+  - `mysqli` - MySQL database driver
+  - `zip` - Archive handling
+  - `opcache` - PHP opcode cache
 - OwnCloud cron tasks scheduled (system cron invoking `occ` commands)
 - MySQL 8.0 with automated backups
 - Large upload/post size support (2G)
@@ -188,7 +197,7 @@ Binary cache lines in `flake.nix` allow faster aarch64 builds when a cache is av
 ## Updating OwnCloud
 
 Add/update derivation or fetch process (not included here). Place application code at `/owncloud/owncloud`. Persist external data volume to avoid data loss on rebuilds.
-
+'datadirectory' => '/usr/share/nginx/html/owncloud/data',
 ## License
 
 This project (NixOS configuration files and documentation) is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
