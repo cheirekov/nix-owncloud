@@ -29,8 +29,12 @@ services.mysqlBackup = {
     group = "wwwrun";
     adminAddr = "admin@localhost";
     
-    # Configure PHP with all required extensions for OwnCloud
-    phpPackage = pkgsphp74.php74.buildEnv {
+    # Configure base PHP package - Apache will override it with apxs2Support
+    # Extensions must be configured on the base PHP before the override
+    phpPackage = (pkgsphp74.php74.override {
+      apxs2Support = true;
+      embedSupport = false;
+    }).buildEnv {
       extensions = ({ enabled, all }: enabled ++ (with all; [
         memcached
         apcu
