@@ -1,4 +1,4 @@
-{ config, pkgs, pkgsphp74, pkgsphp74_nixpkgs, inputs, lib, libphp74, ... }:
+{ config, pkgs, pkgsphp74, pkgsphp74_nixpkgs, pkgsApachePhp74, inputs, lib, libphp74, ... }:
 
 {
 services.mysql = {
@@ -29,12 +29,9 @@ services.mysqlBackup = {
     group = "wwwrun";
     adminAddr = "admin@localhost";
     
-    # Use PHP 7.4 from phps (fossar/nix-phps) with apxs2Support enabled
-    # This builds PHP 7.4 with current glibc and Apache support
-    phpPackage = (pkgsphp74.php74.override {
-      apacheHttpd = config.services.httpd.package;
-      apxs2Support = true;
-    }).buildEnv {
+    # Use apacheHttpdPackages.php from the revision that has PHP 7.4
+    # This is the PHP specifically built for Apache in that nixpkgs revision
+    phpPackage = pkgsApachePhp74.apacheHttpdPackages.php.buildEnv {
       extensions = ({ enabled, all }: enabled ++ (with all; [
         memcached
         apcu

@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "apacheHttpdPackages_php74": {
+      "locked": {
+        "lastModified": 1622810827,
+        "narHash": "sha256-IlPKkf5e1x++bQ5VwRv47EaN5T2Dnh6I7hoKaHnSzfs=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "f36a65f6e2e9f3641f12c7d6e48a5ec4b5c5394b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "f36a65f6e2e9f3641f12c7d6e48a5ec4b5c5394b",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -122,6 +138,7 @@
     },
     "root": {
       "inputs": {
+        "apacheHttpdPackages_php74": "apacheHttpdPackages_php74",
         "nixos-generators": "nixos-generators",
         "nixphp74": "nixphp74",
         "nixpkgs": "nixpkgs",
