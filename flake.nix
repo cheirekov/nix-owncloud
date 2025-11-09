@@ -14,13 +14,14 @@ extra-trusted-public-keys = "nau:HISII/VSRjn+q5/T9Nrue5UmUU66qjppqCC1DEHuQic=";
     nixphp74.url = "github:nixos/nixpkgs?rev=99fcf0ee74957231ff0471228e9a59f976a0266b";
   };
 
-  outputs = { self, nixpkgs, nixos-generators, phps, ... }@inputs:
+  outputs = { self, nixpkgs, nixos-generators, phps, nixphp74, ... }@inputs:
      let
     # Helper function to get packages for a specific system
     forSystem = system: {
       pkgs = nixpkgs.legacyPackages.${system};
       #pkgsphp74 = inputs.nixphp74.legacyPackages.${system};
       pkgsphp74 = inputs.phps.packages.${system};
+      pkgsphp74_nixpkgs = inputs.nixphp74.legacyPackages.${system};
       lib = nixpkgs.lib;
       libphp74 = inputs.nixphp74.lib;
     };
@@ -69,6 +70,7 @@ extra-trusted-public-keys = "nau:HISII/VSRjn+q5/T9Nrue5UmUU66qjppqCC1DEHuQic=";
           inherit inputs;
           libphp74 = x86_64-linux.libphp74;
           pkgsphp74 = x86_64-linux.pkgsphp74;
+          pkgsphp74_nixpkgs = x86_64-linux.pkgsphp74_nixpkgs;
         
         };
       system = "x86_64-linux"; #Change to "aarch64-linux" for ARM systems

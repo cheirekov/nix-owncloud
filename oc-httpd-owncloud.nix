@@ -1,4 +1,4 @@
-{ config, pkgs, pkgsphp74, inputs, lib, libphp74, ... }:
+{ config, pkgs, pkgsphp74, pkgsphp74_nixpkgs, inputs, lib, libphp74, ... }:
 
 {
 services.mysql = {
@@ -29,12 +29,8 @@ services.mysqlBackup = {
     group = "wwwrun";
     adminAddr = "admin@localhost";
     
-    # Configure base PHP package - Apache will override it with apxs2Support
-    # Extensions must be configured on the base PHP before the override
-    phpPackage = (pkgsphp74.php74.override {
-      apxs2Support = true;
-      embedSupport = false;
-    }).buildEnv {
+    # Use native PHP 7.4 from old nixpkgs revision (has proper apxs2Support)
+    phpPackage = pkgsphp74_nixpkgs.php74.buildEnv {
       extensions = ({ enabled, all }: enabled ++ (with all; [
         memcached
         apcu
