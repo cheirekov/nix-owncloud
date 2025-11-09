@@ -29,8 +29,12 @@ services.mysqlBackup = {
     group = "wwwrun";
     adminAddr = "admin@localhost";
     
-    # Use native PHP 7.4 from old nixpkgs revision (has proper apxs2Support)
-    phpPackage = pkgsphp74_nixpkgs.php74.buildEnv {
+    # Use PHP 7.4 from phps (fossar/nix-phps) with apxs2Support enabled
+    # This builds PHP 7.4 with current glibc and Apache support
+    phpPackage = (pkgsphp74.php74.override {
+      apacheHttpd = config.services.httpd.package;
+      apxs2Support = true;
+    }).buildEnv {
       extensions = ({ enabled, all }: enabled ++ (with all; [
         memcached
         apcu
