@@ -25,12 +25,15 @@ services.mysqlBackup = {
 
   services.httpd = {
     enable = true;
+    # Use Apache from the same old nixpkgs revision as PHP 7.4
+    # This ensures both Apache and PHP use the same glibc version
+    package = pkgsApachePhp74.apacheHttpd;
     user = "wwwrun";
     group = "wwwrun";
     adminAddr = "admin@localhost";
     
-    # Use apacheHttpdPackages.php from the revision that has PHP 7.4
-    # This is the PHP specifically built for Apache in that nixpkgs revision
+    # Use apacheHttpdPackages.php from the same revision
+    # Both Apache and PHP built against glibc 2.32
     phpPackage = pkgsApachePhp74.apacheHttpdPackages.php.buildEnv {
       extensions = ({ enabled, all }: enabled ++ (with all; [
         memcached
