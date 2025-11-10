@@ -117,11 +117,11 @@ services.mysqlBackup = {
 
   # Create owncloud directory owned by httpd user and a symlink 'data' pointing to /owncloud/owncloud/data
   # Using systemd-tmpfiles so it is realized at image/container boot.
-  # systemd.tmpfiles.rules = [
-  #   "d /usr/share 0755 root root - -"
-  #   "d /usr/share/httpd 0755 ${config.services.httpd.user} ${config.services.httpd.group} - -"
-  #   "d /usr/share/httpd/htdocs 0755 ${config.services.httpd.user} ${config.services.httpd.group} - -"
-  #   "d /usr/share/httpd/htdocs/owncloud 0755 ${config.services.httpd.user} ${config.services.httpd.group} - -"
-  #   "L+ /usr/share/httpd/htdocs/owncloud/data - - - - /owncloud/owncloud/data"
-  # ];
+  systemd.tmpfiles.rules = [
+    "d /usr/share 0755 root root - -"
+    "d /usr/share/httpd 0755 ${config.services.httpd.user} ${config.services.httpd.group} - -"
+    "d /usr/share/httpd/htdocs 0755 ${config.services.httpd.user} ${config.services.httpd.group} - -"
+    "d /usr/share/httpd/htdocs/owncloud 0755 ${config.services.httpd.user} ${config.services.httpd.group} - -"
+    "L+ /usr/share/httpd/htdocs/owncloud/data - - - - /owncloud/owncloud/data"
+  ];
 }
